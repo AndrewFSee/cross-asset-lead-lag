@@ -1,0 +1,63 @@
+equities:
+  indices:
+    SPX: {ticker: "^GSPC", source: yahoo, description: "S&P 500"}
+    NDX: {ticker: "^NDX", source: yahoo, description: "Nasdaq 100"}
+    RTY: {ticker: "^RUT", source: yahoo, description: "Russell 2000"}
+  sectors:
+    XLF: {ticker: XLF, source: yahoo, description: "Financials"}
+    XLE: {ticker: XLE, source: yahoo, description: "Energy"}
+    XLI: {ticker: XLI, source: yahoo, description: "Industrials"}
+    XLB: {ticker: XLB, source: yahoo, description: "Materials"}
+    XLK: {ticker: XLK, source: yahoo, description: "Technology"}
+    XLU: {ticker: XLU, source: yahoo, description: "Utilities"}
+    XLP: {ticker: XLP, source: yahoo, description: "Consumer Staples"}
+    XLV: {ticker: XLV, source: yahoo, description: "Health Care"}
+    XLY: {ticker: XLY, source: yahoo, description: "Consumer Discretionary"}
+    XLRE: {ticker: XLRE, source: yahoo, description: "Real Estate"}
+    XLC: {ticker: XLC, source: yahoo, description: "Communication Services"}
+
+rates:
+  UST_2Y: {series_id: DGS2, source: fred, description: "2-Year Treasury Yield", transform: diff}
+  UST_5Y: {series_id: DGS5, source: fred, description: "5-Year Treasury Yield", transform: diff}
+  UST_10Y: {series_id: DGS10, source: fred, description: "10-Year Treasury Yield", transform: diff}
+  UST_30Y: {series_id: DGS30, source: fred, description: "30-Year Treasury Yield", transform: diff}
+  SPREAD_2s10s: {series_id: T10Y2Y, source: fred, description: "2s10s Spread", transform: diff}
+  REAL_YIELD_10Y: {series_id: DFII10, source: fred, description: "10Y Real Yield (TIPS)", transform: diff}
+  BREAKEVEN_5Y: {series_id: T5YIE, source: fred, description: "5Y Breakeven Inflation", transform: diff}
+  BREAKEVEN_10Y: {series_id: T10YIE, source: fred, description: "10Y Breakeven Inflation", transform: diff}
+
+credit:
+  HY_OAS: {series_id: BAMLH0A0HYM2, source: fred, description: "US HY OAS", transform: diff}
+  IG_OAS: {series_id: BAMLC0A0CM, source: fred, description: "US IG OAS", transform: diff}
+  BBB_OAS: {series_id: BAMLC0A4CBBB, source: fred, description: "BBB OAS", transform: diff}
+  CCC_OAS: {series_id: BAMLH0A3HYC, source: fred, description: "CCC OAS", transform: diff}
+
+commodities:
+  WTI: {ticker: "CL=F", source: yahoo, description: "WTI Crude Oil", transform: log_return}
+  GOLD: {ticker: "GC=F", source: yahoo, description: "Gold", transform: log_return}
+  COPPER: {ticker: "HG=F", source: yahoo, description: "Copper", transform: log_return}
+  NAT_GAS: {ticker: "NG=F", source: yahoo, description: "Natural Gas", transform: log_return}
+  SILVER: {ticker: "SI=F", source: yahoo, description: "Silver", transform: log_return}
+
+fx:
+  DXY: {ticker: "DX-Y.NYB", source: yahoo, description: "US Dollar Index", transform: log_return}
+  EURUSD: {ticker: "EURUSD=X", source: yahoo, description: "EUR/USD", transform: log_return}
+  USDJPY: {ticker: "JPY=X", source: yahoo, description: "USD/JPY", transform: log_return}
+  AUDUSD: {ticker: "AUDUSD=X", source: yahoo, description: "AUD/USD", transform: log_return}
+  USDCNH: {ticker: "CNH=X", source: yahoo, description: "USD/CNH", transform: log_return}
+
+volatility:
+  VIX: {ticker: "^VIX", source: yahoo, description: "CBOE VIX", transform: log_return}
+  MOVE: {ticker: "^MOVE", source: yahoo, description: "ICE BofA MOVE Index", transform: log_return}
+  OVX: {series_id: OVXCLS, source: fred, description: "CBOE Oil Volatility", transform: log_return}
+
+crypto:
+  BTC: {ticker: "BTC-USD", source: yahoo, description: "Bitcoin", transform: log_return}
+  ETH: {ticker: "ETH-USD", source: yahoo, description: "Ethereum", transform: log_return}
+
+macro:
+  ISM_PMI: {series_id: MANEMP, source: fred, description: "ISM Manufacturing Employment", transform: diff, frequency: monthly}
+  INITIAL_CLAIMS: {series_id: ICSA, source: fred, description: "Initial Jobless Claims", transform: diff, frequency: weekly}
+  UMICH_SENTIMENT: {series_id: UMCSENT, source: fred, description: "U Michigan Consumer Sentiment", transform: diff, frequency: monthly}
+  NFCI: {series_id: NFCI, source: fred, description: "Chicago Fed National Financial Conditions", transform: diff, frequency: weekly}
+  FED_FUNDS: {series_id: FEDFUNDS, source: fred, description: "Effective Federal Funds Rate", transform: diff, frequency: monthly}
