@@ -170,9 +170,7 @@ class LeadLagMonitor:
                     follower="MARKET",
                     old_value=float(self._last_regime),
                     new_value=float(current_regime),
-                    description=(
-                        f"Regime transition: {self._last_regime} → {current_regime}"
-                    ),
+                    description=(f"Regime transition: {self._last_regime} → {current_regime}"),
                 )
                 new_events.append(event)
                 logger.info("Regime change: %s", event.description)

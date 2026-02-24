@@ -39,7 +39,8 @@ def render_backtest_results(backtest) -> None:
 
     # ── Equity curve + drawdown ───────────────────────────────────────────────
     fig = make_subplots(
-        rows=2, cols=1,
+        rows=2,
+        cols=1,
         subplot_titles=["Equity Curve", "Drawdown"],
         vertical_spacing=0.1,
         row_heights=[0.7, 0.3],
@@ -47,7 +48,8 @@ def render_backtest_results(backtest) -> None:
 
     fig.add_trace(
         go.Scatter(x=eq_curve.index, y=eq_curve.values, name="Portfolio", line=dict(color="blue")),
-        row=1, col=1,
+        row=1,
+        col=1,
     )
     fig.add_trace(
         go.Scatter(
@@ -57,7 +59,8 @@ def render_backtest_results(backtest) -> None:
             fill="tozeroy",
             line=dict(color="red"),
         ),
-        row=2, col=1,
+        row=2,
+        col=1,
     )
 
     fig.update_layout(height=600, title_text="Walk-Forward Backtest")
@@ -66,9 +69,7 @@ def render_backtest_results(backtest) -> None:
     # ── Rolling Sharpe ───────────────────────────────────────────────────────
     st.write("### Rolling 63-day Sharpe Ratio")
     port_returns = backtest._portfolio_returns
-    rolling_sharpe = (
-        port_returns.rolling(63).mean() / port_returns.rolling(63).std() * (252 ** 0.5)
-    )
+    rolling_sharpe = port_returns.rolling(63).mean() / port_returns.rolling(63).std() * (252**0.5)
     fig_sharpe = go.Figure(
         go.Scatter(x=rolling_sharpe.index, y=rolling_sharpe.values, name="Rolling Sharpe")
     )
@@ -78,6 +79,4 @@ def render_backtest_results(backtest) -> None:
 
     # ── Full metrics table ───────────────────────────────────────────────────
     st.write("### Full Metrics")
-    st.dataframe(
-        pd.DataFrame.from_dict(metrics, orient="index", columns=["Value"]).round(4)
-    )
+    st.dataframe(pd.DataFrame.from_dict(metrics, orient="index", columns=["Value"]).round(4))

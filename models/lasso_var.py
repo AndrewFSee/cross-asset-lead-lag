@@ -7,7 +7,7 @@ from typing import List, Optional
 
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LassoCV, LassoLarsIC
+from sklearn.linear_model import LassoLarsIC
 
 logger = logging.getLogger(__name__)
 
@@ -43,9 +43,7 @@ class LassoVAR:
         self._asset_names: List[str] = []
         self._fitted = False
 
-    def _build_lagged_matrix(
-        self, Y: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def _build_lagged_matrix(self, Y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Build lagged regressor matrix for VAR.
 
         Args:
@@ -141,10 +139,9 @@ class LassoVAR:
         forecasts = []
         for _ in range(horizon):
             x_t = np.concatenate([Y_ext[-lag] for lag in range(1, p + 1)])
-            fc = np.array([
-                float(self._intercepts[j] + x_t @ self._coefs[j])
-                for j in range(n_vars)
-            ])
+            fc = np.array(
+                [float(self._intercepts[j] + x_t @ self._coefs[j]) for j in range(n_vars)]
+            )
             forecasts.append(fc)
             Y_ext = np.vstack([Y_ext[1:], fc])
 

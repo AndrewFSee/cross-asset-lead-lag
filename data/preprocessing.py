@@ -7,7 +7,6 @@ from typing import Dict, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy.stats import mstats
 
 logger = logging.getLogger(__name__)
 
@@ -167,8 +166,6 @@ def align_calendars(
         else:
             reindexed = reindexed.ffill(limit=3)
         aligned[asset_class] = reindexed
-        logger.debug(
-            "Aligned %s: %d rows -> %d rows", asset_class, len(df), len(reindexed)
-        )
+        logger.debug("Aligned %s: %d rows -> %d rows", asset_class, len(df), len(reindexed))
 
     return aligned

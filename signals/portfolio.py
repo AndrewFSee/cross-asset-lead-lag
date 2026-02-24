@@ -6,7 +6,6 @@ import logging
 from typing import Dict
 
 import numpy as np
-import pandas as pd
 from scipy.optimize import minimize
 
 logger = logging.getLogger(__name__)
@@ -30,7 +29,6 @@ def risk_parity_weights(
     Returns:
         Dict mapping asset name to weight. Weights sum to 1.
     """
-    n = len(asset_names)
     vols = np.sqrt(np.diag(cov_matrix))
     vols = np.maximum(vols, 1e-8)
 

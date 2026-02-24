@@ -116,18 +116,21 @@ def transfer_entropy_knn(
     tree_th = KDTree(th, metric="chebyshev")
 
     # Number of points strictly within eps ball
-    n_th_tf = np.array([
-        tree_th_tf.query_radius([joint_th_tf[i]], r=eps[i] - 1e-15, count_only=True)[0]
-        for i in range(n)
-    ])
-    n_th_sh = np.array([
-        tree_th_sh.query_radius([joint_th_sh[i]], r=eps[i] - 1e-15, count_only=True)[0]
-        for i in range(n)
-    ])
-    n_th = np.array([
-        tree_th.query_radius([th[i]], r=eps[i] - 1e-15, count_only=True)[0]
-        for i in range(n)
-    ])
+    n_th_tf = np.array(
+        [
+            tree_th_tf.query_radius([joint_th_tf[i]], r=eps[i] - 1e-15, count_only=True)[0]
+            for i in range(n)
+        ]
+    )
+    n_th_sh = np.array(
+        [
+            tree_th_sh.query_radius([joint_th_sh[i]], r=eps[i] - 1e-15, count_only=True)[0]
+            for i in range(n)
+        ]
+    )
+    n_th = np.array(
+        [tree_th.query_radius([th[i]], r=eps[i] - 1e-15, count_only=True)[0] for i in range(n)]
+    )
 
     te = (
         digamma(k)

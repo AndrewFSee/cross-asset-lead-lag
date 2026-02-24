@@ -89,7 +89,9 @@ def _render_regime_page() -> None:
     import pandas as pd
 
     dates = pd.date_range("2020-01-01", periods=T, freq="B")
-    returns = pd.DataFrame(rng.standard_normal((T, 3)), index=dates, columns=["SPX", "HY_OAS", "VIX"])
+    returns = pd.DataFrame(
+        rng.standard_normal((T, 3)), index=dates, columns=["SPX", "HY_OAS", "VIX"]
+    )
     render_regime_panel(smoothed_probs, returns, dates)
 
 
@@ -97,9 +99,27 @@ def _render_signals_page() -> None:
     from dashboard.pages.signal_monitor import render_signal_monitor
 
     demo_signals = [
-        {"leader": "VIX", "follower": "HY_OAS", "te_score": 0.15, "expected_return": 0.002, "confidence": 0.7},
-        {"leader": "COPPER", "follower": "XLI", "te_score": 0.12, "expected_return": 0.003, "confidence": 0.65},
-        {"leader": "HY_OAS", "follower": "SPX", "te_score": 0.10, "expected_return": -0.001, "confidence": 0.55},
+        {
+            "leader": "VIX",
+            "follower": "HY_OAS",
+            "te_score": 0.15,
+            "expected_return": 0.002,
+            "confidence": 0.7,
+        },
+        {
+            "leader": "COPPER",
+            "follower": "XLI",
+            "te_score": 0.12,
+            "expected_return": 0.003,
+            "confidence": 0.65,
+        },
+        {
+            "leader": "HY_OAS",
+            "follower": "SPX",
+            "te_score": 0.10,
+            "expected_return": -0.001,
+            "confidence": 0.55,
+        },
     ]
     render_signal_monitor(demo_signals)
 

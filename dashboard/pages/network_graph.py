@@ -6,7 +6,6 @@ import logging
 from typing import Dict, Optional
 
 import networkx as nx
-import numpy as np
 import pandas as pd
 import streamlit as st
 
@@ -78,27 +77,29 @@ def render_network_graph(
     degree = dict(G.degree())
     nodes = []
     for node in assets:
-        color = ASSET_CLASS_COLORS.get(
-            (asset_class_map or {}).get(node, "default"), "#9E9E9E"
+        color = ASSET_CLASS_COLORS.get((asset_class_map or {}).get(node, "default"), "#9E9E9E")
+        nodes.append(
+            {
+                "id": node,
+                "x": float(pos.get(node, [0, 0])[0]),
+                "y": float(pos.get(node, [0, 0])[1]),
+                "color": color,
+                "size": 10 + degree.get(node, 0) * 3,
+                "label": node,
+            }
         )
-        nodes.append({
-            "id": node,
-            "x": float(pos.get(node, [0, 0])[0]),
-            "y": float(pos.get(node, [0, 0])[1]),
-            "color": color,
-            "size": 10 + degree.get(node, 0) * 3,
-            "label": node,
-        })
 
     edges = []
     for src, tgt, data in G.edges(data=True):
-        edges.append({
-            "source_x": float(pos[src][0]),
-            "source_y": float(pos[src][1]),
-            "target_x": float(pos[tgt][0]),
-            "target_y": float(pos[tgt][1]),
-            "weight": float(data.get("weight", 0.01)),
-        })
+        edges.append(
+            {
+                "source_x": float(pos[src][0]),
+                "source_y": float(pos[src][1]),
+                "target_x": float(pos[tgt][0]),
+                "target_y": float(pos[tgt][1]),
+                "weight": float(data.get("weight", 0.01)),
+            }
+        )
 
     fig = network_chart(nodes, edges, title="Lead-Lag Transfer Entropy Network", height=600)
     st.plotly_chart(fig, use_container_width=True)

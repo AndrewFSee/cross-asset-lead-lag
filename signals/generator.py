@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from dataclasses import dataclass
+from typing import Dict, List
 
 import numpy as np
 import pandas as pd
@@ -82,7 +82,6 @@ def generate_signals(
 
     # B_regime shape: (n_vars, n_vars*n_lags+1)
     # Coefficient for asset i→j is in row j, columns 1..n_vars (lag 1)
-    n_vars = len(assets)
 
     for i, leader in enumerate(assets):
         for j, follower in enumerate(assets):

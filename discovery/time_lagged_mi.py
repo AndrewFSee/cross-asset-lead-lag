@@ -47,14 +47,12 @@ def mutual_information_knn(x: np.ndarray, y: np.ndarray, k: int = 5) -> float:
     tree_x = KDTree(x, metric="chebyshev")
     tree_y = KDTree(y, metric="chebyshev")
 
-    n_x = np.array([
-        tree_x.query_radius([x[i]], r=eps[i] - 1e-15, count_only=True)[0]
-        for i in range(n)
-    ])
-    n_y = np.array([
-        tree_y.query_radius([y[i]], r=eps[i] - 1e-15, count_only=True)[0]
-        for i in range(n)
-    ])
+    n_x = np.array(
+        [tree_x.query_radius([x[i]], r=eps[i] - 1e-15, count_only=True)[0] for i in range(n)]
+    )
+    n_y = np.array(
+        [tree_y.query_radius([y[i]], r=eps[i] - 1e-15, count_only=True)[0] for i in range(n)]
+    )
 
     mi = digamma(k) - np.mean(digamma(n_x + 1) + digamma(n_y + 1)) + digamma(n)
     return max(0.0, float(mi))

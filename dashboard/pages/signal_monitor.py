@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import List
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -47,10 +47,7 @@ def render_signal_monitor(current_signals: List[dict]) -> None:
             go.Bar(
                 x=df["follower"].tolist(),
                 y=df["expected_return"].tolist(),
-                marker_color=[
-                    "green" if v > 0 else "red"
-                    for v in df["expected_return"].tolist()
-                ],
+                marker_color=["green" if v > 0 else "red" for v in df["expected_return"].tolist()],
             )
         )
         fig.update_layout(title="Expected Return by Follower Asset", height=350)

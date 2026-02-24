@@ -31,7 +31,8 @@ def render_regime_panel(
 
     # Regime probability time series
     fig = make_subplots(
-        rows=2, cols=1,
+        rows=2,
+        cols=1,
         subplot_titles=["Regime Probabilities", "Asset Returns"],
         vertical_spacing=0.1,
     )
@@ -41,20 +42,22 @@ def render_regime_panel(
         prob_series = smoothed_probs[:, r] if smoothed_probs.ndim > 1 else smoothed_probs
         fig.add_trace(
             go.Scatter(
-                x=dates[-len(prob_series):],
+                x=dates[-len(prob_series) :],
                 y=prob_series,
                 name=f"Regime {r}",
                 fill="tozeroy",
                 line=dict(color=colors[r % len(colors)]),
             ),
-            row=1, col=1,
+            row=1,
+            col=1,
         )
 
     if not returns.empty:
         for col in returns.columns[:3]:  # Show first 3 assets
             fig.add_trace(
                 go.Scatter(x=returns.index, y=returns[col].cumsum(), name=col, mode="lines"),
-                row=2, col=1,
+                row=2,
+                col=1,
             )
 
     fig.update_layout(height=600, title_text="Regime Analysis")

@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Dict, List
 
-import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 
 def line_chart(
@@ -95,9 +93,7 @@ def bar_chart(
     values = list(data.values())
     colors = [color_positive if v >= 0 else color_negative for v in values]
 
-    fig = go.Figure(
-        data=go.Bar(x=labels, y=values, marker_color=colors)
-    )
+    fig = go.Figure(data=go.Bar(x=labels, y=values, marker_color=colors))
     fig.update_layout(title=title, xaxis_title=x_label, yaxis_title=y_label, height=height)
     return fig
 
@@ -123,14 +119,16 @@ def network_chart(
 
     # Draw edges
     for edge in edges:
-        fig.add_trace(go.Scatter(
-            x=[edge["source_x"], edge["target_x"], None],
-            y=[edge["source_y"], edge["target_y"], None],
-            mode="lines",
-            line=dict(width=max(0.5, edge.get("weight", 1.0) * 3), color="grey"),
-            hoverinfo="none",
-            showlegend=False,
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=[edge["source_x"], edge["target_x"], None],
+                y=[edge["source_y"], edge["target_y"], None],
+                mode="lines",
+                line=dict(width=max(0.5, edge.get("weight", 1.0) * 3), color="grey"),
+                hoverinfo="none",
+                showlegend=False,
+            )
+        )
 
     # Draw nodes
     node_x = [n["x"] for n in nodes]
@@ -139,15 +137,17 @@ def network_chart(
     node_color = [n.get("color", "blue") for n in nodes]
     node_size = [n.get("size", 10) for n in nodes]
 
-    fig.add_trace(go.Scatter(
-        x=node_x,
-        y=node_y,
-        mode="markers+text",
-        marker=dict(size=node_size, color=node_color),
-        text=node_text,
-        textposition="top center",
-        hoverinfo="text",
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=node_x,
+            y=node_y,
+            mode="markers+text",
+            marker=dict(size=node_size, color=node_color),
+            text=node_text,
+            textposition="top center",
+            hoverinfo="text",
+        )
+    )
 
     fig.update_layout(
         title=title,

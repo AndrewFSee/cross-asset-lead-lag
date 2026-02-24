@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import numpy as np
 import torch
@@ -45,9 +45,7 @@ class ComponentLSTM(nn.Module):
         self.ablate_idx = ablate_idx
 
         # Separate linear embedding for each input asset
-        self.embeddings = nn.ModuleList([
-            nn.Linear(1, embed_dim) for _ in range(n_inputs)
-        ])
+        self.embeddings = nn.ModuleList([nn.Linear(1, embed_dim) for _ in range(n_inputs)])
 
         self.lstm = nn.LSTM(
             input_size=n_inputs * embed_dim,
@@ -166,9 +164,7 @@ def neural_granger_test(
     X_val = torch.tensor(X_all[n_train:], dtype=torch.float32).to(device)
     y_val = torch.tensor(y_all[n_train:], dtype=torch.float32).to(device)
 
-    train_loader = DataLoader(
-        TensorDataset(X_train, y_train), batch_size=batch_size, shuffle=True
-    )
+    train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=batch_size, shuffle=True)
 
     # ── Train full model ─────────────────────────────────────────────────────
     model = ComponentLSTM(

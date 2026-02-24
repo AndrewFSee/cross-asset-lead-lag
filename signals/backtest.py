@@ -61,9 +61,7 @@ class WalkForwardBacktest:
         weights_list = []
         dates = []
 
-        current_weights = pd.Series(
-            np.zeros(len(assets)), index=assets
-        )
+        current_weights = pd.Series(np.zeros(len(assets)), index=assets)
 
         for t in range(self.initial_window, T, self.step_size):
             # Training window
@@ -126,9 +124,7 @@ class WalkForwardBacktest:
 
         sharpe = float(mean_ret / std_ret * np.sqrt(annualization)) if std_ret > 1e-10 else 0.0
         sortino = (
-            float(mean_ret / downside_std * np.sqrt(annualization))
-            if downside_std > 1e-10
-            else 0.0
+            float(mean_ret / downside_std * np.sqrt(annualization)) if downside_std > 1e-10 else 0.0
         )
 
         cum = (1 + r).cumprod()

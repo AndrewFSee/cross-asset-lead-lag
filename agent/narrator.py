@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -39,14 +39,16 @@ def generate_narrative_prompt(
         for key, val in macro_context.items():
             lines.append(f"- {key}: {val:.4f}")
 
-    lines.extend([
-        "",
-        "## Instructions",
-        "1. Explain what each event means economically.",
-        "2. Identify which events are most significant for risk/trading.",
-        "3. Suggest any portfolio adjustments warranted by these signals.",
-        "4. Keep the response concise (under 300 words).",
-    ])
+    lines.extend(
+        [
+            "",
+            "## Instructions",
+            "1. Explain what each event means economically.",
+            "2. Identify which events are most significant for risk/trading.",
+            "3. Suggest any portfolio adjustments warranted by these signals.",
+            "4. Keep the response concise (under 300 words).",
+        ]
+    )
 
     return "\n".join(lines)
 
@@ -124,7 +126,7 @@ def format_daily_report(
         date = datetime.utcnow()
 
     lines = [
-        f"# Lead-Lag Monitor Daily Report",
+        "# Lead-Lag Monitor Daily Report",
         f"**Date:** {date.strftime('%Y-%m-%d %H:%M UTC')}",
         "",
         "---",

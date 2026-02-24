@@ -11,10 +11,9 @@ Reference:
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import numpy as np
-import pandas as pd
 from scipy.stats import multivariate_normal
 
 logger = logging.getLogger(__name__)
@@ -62,7 +61,6 @@ class MarkovSwitchingVAR:
         """
         from sklearn.cluster import KMeans  # noqa: PLC0415
 
-        T = len(Y)
         km = KMeans(n_clusters=self.n_regimes, n_init=10, random_state=42)
         labels = km.fit_predict(Y)
 
@@ -173,9 +171,7 @@ class MarkovSwitchingVAR:
 
         return filtered, predicted, log_lik
 
-    def _kim_smoother(
-        self, filtered: np.ndarray, predicted: np.ndarray
-    ) -> np.ndarray:
+    def _kim_smoother(self, filtered: np.ndarray, predicted: np.ndarray) -> np.ndarray:
         """Kim (1994) smoother for smoothed regime probabilities.
 
         Args:
@@ -195,9 +191,7 @@ class MarkovSwitchingVAR:
                 num = 0.0
                 for s in range(R):
                     if predicted[t + 1, s] > 1e-300:
-                        num += (
-                            self.P[r, s] * smoothed[t + 1, s] / predicted[t + 1, s]
-                        )
+                        num += self.P[r, s] * smoothed[t + 1, s] / predicted[t + 1, s]
                 smoothed[t, r] = filtered[t, r] * num
 
             # Normalize
@@ -230,7 +224,9 @@ class MarkovSwitchingVAR:
         for r in range(R):
             for s in range(R):
                 num = sum(
-                    filtered[t, r] * self.P[r, s] * smoothed[t + 1, s]
+                    filtered[t, r]
+                    * self.P[r, s]
+                    * smoothed[t + 1, s]
                     / max(1e-300, (self.P.T @ filtered[t]).sum())
                     for t in range(T - 1)
                 )
@@ -361,10 +357,7 @@ class MarkovSwitchingVAR:
                 regime_probs = self.pi
 
             # Weighted forecast
-            fc = sum(
-                regime_probs[r] * (x_t @ self.B[r].T)
-                for r in range(self.n_regimes)
-            )
+            fc = sum(regime_probs[r] * (x_t @ self.B[r].T) for r in range(self.n_regimes))
             forecasts.append(fc)
             Y_ext = np.vstack([Y_ext[1:], fc])
 

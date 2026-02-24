@@ -5,11 +5,10 @@ from __future__ import annotations
 import json
 import logging
 import smtplib
+import urllib.request
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Dict, List, Optional
-
-import urllib.request
 
 logger = logging.getLogger(__name__)
 
