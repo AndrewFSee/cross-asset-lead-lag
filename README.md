@@ -33,14 +33,14 @@
 
 ```mermaid
 graph LR
-    A["📥 Data Ingestion<br/>45 assets · 8 classes<br/>Yahoo Finance + FRED"] --> B["🔧 Preprocessing<br/>Stationarity · Winsorize<br/>Calendar Alignment"]
-    B --> C["🔍 Discovery Engine<br/>Transfer Entropy · KSG<br/>Neural Granger Causality"]
-    C --> D["📊 Regime Detection<br/>Gaussian HMM<br/>2-State: Calm / Stress"]
-    C --> E["📐 Lasso VAR<br/>Sparse Causal Structure<br/>BIC Auto-Selection"]
-    D --> F["⚡ Signal Generation<br/>TE Decay · Hit Rate<br/>Market-Hours Timing"]
+    A["Data Ingestion\n45 assets, 8 classes\nYahoo Finance + FRED"] --> B["Preprocessing\nStationarity, Winsorize\nCalendar Alignment"]
+    B --> C["Discovery Engine\nTransfer Entropy KSG\nNeural Granger Causality"]
+    C --> D["Regime Detection\nGaussian HMM\n2-State: Calm / Stress"]
+    C --> E["Lasso VAR\nSparse Causal Structure\nBIC Auto-Selection"]
+    D --> F["Signal Generation\nTE Decay, Hit Rate\nMarket-Hours Timing"]
     E --> F
-    F --> G["📈 Walk-Forward Backtest<br/>Lead-Lag vs Benchmark<br/>Sharpe · Sortino · DD"]
-    G --> H["🖥️ Streamlit Dashboard<br/>5 Interactive Pages<br/>Real-Time Monitoring"]
+    F --> G["Walk-Forward Backtest\nLead-Lag vs Benchmark\nSharpe, Sortino, DD"]
+    G --> H["Streamlit Dashboard\n5 Interactive Pages\nReal-Time Monitoring"]
 
     style A fill:#1a1a2e,stroke:#e94560,color:#fff
     style B fill:#1a1a2e,stroke:#e94560,color:#fff
@@ -75,15 +75,15 @@ graph LR
 
 ```mermaid
 graph TD
-    subgraph universe ["Cross-Asset Universe — 45 Assets"]
-        EQ["🏛️ Equities<br/>SPX · NDX · RTY<br/>11 GICS Sectors"]
-        FI["📊 Fixed Income<br/>UST 2Y/10Y/30Y<br/>Real Yields · Breakevens"]
-        CR["💳 Credit<br/>HY · IG · BBB · CCC<br/>OAS Spreads"]
-        CO["⛏️ Commodities<br/>Gold · Copper · Brent"]
-        FX["💱 FX<br/>DXY · EUR · JPY<br/>AUD · CAD · CNH"]
-        CY["₿ Crypto<br/>BTC · ETH"]
-        VO["📉 Volatility<br/>VIX · MOVE"]
-        MA["📋 Macro<br/>NFCI · CFNAI"]
+    subgraph universe ["Cross-Asset Universe  --  45 Assets"]
+        EQ["Equities\nSPX, NDX, RTY\n11 GICS Sectors"]
+        FI["Fixed Income\nUST 2Y/10Y/30Y\nReal Yields, Breakevens"]
+        CR["Credit\nHY, IG, BBB, CCC\nOAS Spreads"]
+        CO["Commodities\nGold, Copper, Brent"]
+        FX["FX\nDXY, EUR, JPY\nAUD, CAD, CNH"]
+        CY["Crypto\nBTC, ETH"]
+        VO["Volatility\nVIX, MOVE"]
+        MA["Macro\nNFCI, CFNAI"]
     end
 
     style EQ fill:#2196F3,stroke:#1565C0,color:#fff
@@ -130,13 +130,21 @@ The engine recovers economically meaningful information flows and measures their
 
 ## Backtest: Lead-Lag Signals vs. Passive Benchmark
 
-```mermaid
-xychart-beta
-    title "Cumulative Return — Lead-Lag Strategy vs Inv-Vol Benchmark"
-    x-axis ["Y1","","","Y2","","","Y3","","","Y4","","","Y5","","","Y6","","","Y7","","","Y8"]
-    y-axis "Growth of $1" 0.85 --> 1.35
-    line "Lead-Lag Strategy (Sharpe 1.70)" [1.0,1.01,1.03,1.02,1.06,1.05,1.08,1.10,1.07,1.12,1.15,1.13,1.17,1.16,1.19,1.21,1.18,1.22,1.24,1.26,1.28,1.29]
-    line "Benchmark Inv-Vol (Sharpe 0.65)" [1.0,1.00,1.01,1.00,1.01,1.01,1.02,1.02,1.01,1.03,1.03,1.02,1.03,1.03,1.04,1.04,1.03,1.04,1.05,1.05,1.06,1.06]
+```
+  Growth of $1
+  1.30 ┤                                                          ╭── Lead-Lag Strategy
+  1.25 ┤                                                     ╭────╯
+  1.20 ┤                                                ╭────╯
+  1.15 ┤                                      ╭────╮╭──╯
+  1.10 ┤                                 ╭────╯    ╰╯
+  1.05 ┤                       ╭────╮╭──╯
+  1.00 ┤──────────────────╮╭──╯    ╰╯             ·········· Benchmark (Inv-Vol)
+  0.95 ┤                  ╰╯       ···········································
+       └────┬────┬────┬────┬────┬────┬────┬────┬
+           Y1   Y2   Y3   Y4   Y5   Y6   Y7   Y8
+
+  Lead-Lag Strategy:  Sharpe 1.70 · Return 29.3% · Max DD -5.2%
+  Benchmark Inv-Vol:  Sharpe 0.65 · Return  6.3% · Max DD -4.8%
 ```
 
 The walk-forward backtest uses **no lookahead bias** — TE matrices are computed on expanding windows, signals are generated from yesterday's leader returns, and positions are rebalanced at the next day's close.
