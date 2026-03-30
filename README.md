@@ -33,14 +33,14 @@
 
 ```mermaid
 graph LR
-    A["Data Ingestion\n45 assets, 8 classes\nYahoo Finance + FRED"] --> B["Preprocessing\nStationarity, Winsorize\nCalendar Alignment"]
-    B --> C["Discovery Engine\nTransfer Entropy KSG\nNeural Granger Causality"]
-    C --> D["Regime Detection\nGaussian HMM\n2-State: Calm / Stress"]
-    C --> E["Lasso VAR\nSparse Causal Structure\nBIC Auto-Selection"]
-    D --> F["Signal Generation\nTE Decay, Hit Rate\nMarket-Hours Timing"]
+    A["Data Ingestion"] --> B["Preprocessing"]
+    B --> C["Discovery Engine"]
+    C --> D["Regime Detection"]
+    C --> E["Lasso VAR"]
+    D --> F["Signal Generation"]
     E --> F
-    F --> G["Walk-Forward Backtest\nLead-Lag vs Benchmark\nSharpe, Sortino, DD"]
-    G --> H["Streamlit Dashboard\n5 Interactive Pages\nReal-Time Monitoring"]
+    F --> G["Walk-Forward Backtest"]
+    G --> H["Streamlit Dashboard"]
 
     style A fill:#1a1a2e,stroke:#e94560,color:#fff
     style B fill:#1a1a2e,stroke:#e94560,color:#fff
@@ -51,6 +51,17 @@ graph LR
     style G fill:#0f3460,stroke:#533483,color:#fff
     style H fill:#533483,stroke:#e94560,color:#fff
 ```
+
+| Step | Component | Details |
+|:-----|:----------|:--------|
+| 1 | **Data Ingestion** | 45 assets, 8 classes — Yahoo Finance + FRED |
+| 2 | **Preprocessing** | Stationarity tests, winsorization, calendar alignment |
+| 3 | **Discovery Engine** | Transfer Entropy (KSG), Neural Granger Causality |
+| 4 | **Regime Detection** | Gaussian HMM — 2-state: Calm / Stress |
+| 5 | **Lasso VAR** | Sparse causal structure, BIC auto-selection |
+| 6 | **Signal Generation** | TE decay, directional hit rate, market-hours timing |
+| 7 | **Walk-Forward Backtest** | Lead-lag vs benchmark — Sharpe, Sortino, DD |
+| 8 | **Streamlit Dashboard** | 5 interactive pages, real-time monitoring |
 
 ### The Discovery Pipeline
 
@@ -65,7 +76,7 @@ graph LR
 
 4. **Regime Detection** — Gaussian HMM fitted on four interpretable macro features (SPX realized vol, HY OAS credit stress, yield curve slope, VIX level) to identify calm vs. stress regimes.
 
-5. **Signal Generation** — For each leader→follower pair: computes $\hat{r}_{follower} = \beta \cdot r_{leader}$ where $\beta = \rho \cdot \frac{\sigma_{follower}}{\sigma_{leader}}$. Signals are filtered by directional hit rate, TE strength, and market-hours timing (actionable vs. likely already priced).
+5. **Signal Generation** — For each leader→follower pair: computes `E[r_follower] = beta * r_leader` where `beta = corr * (std_follower / std_leader)`. Signals are filtered by directional hit rate, TE strength, and market-hours timing (actionable vs. likely already priced).
 
 6. **Walk-Forward Backtest** — Expanding-window backtest with TE-weighted Bayesian model averaging across multiple leaders per follower, daily rebalance, 15% max position cap.
 
@@ -76,14 +87,14 @@ graph LR
 ```mermaid
 graph TD
     subgraph universe ["Cross-Asset Universe  --  45 Assets"]
-        EQ["Equities\nSPX, NDX, RTY\n11 GICS Sectors"]
-        FI["Fixed Income\nUST 2Y/10Y/30Y\nReal Yields, Breakevens"]
-        CR["Credit\nHY, IG, BBB, CCC\nOAS Spreads"]
-        CO["Commodities\nGold, Copper, Brent"]
-        FX["FX\nDXY, EUR, JPY\nAUD, CAD, CNH"]
-        CY["Crypto\nBTC, ETH"]
-        VO["Volatility\nVIX, MOVE"]
-        MA["Macro\nNFCI, CFNAI"]
+        EQ["Equities"]
+        FI["Fixed Income"]
+        CR["Credit"]
+        CO["Commodities"]
+        FX["FX"]
+        CY["Crypto"]
+        VO["Volatility"]
+        MA["Macro"]
     end
 
     style EQ fill:#2196F3,stroke:#1565C0,color:#fff
