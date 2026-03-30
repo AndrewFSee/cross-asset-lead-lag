@@ -85,17 +85,13 @@ graph LR
 ## Asset Universe
 
 ```mermaid
-graph TD
-    subgraph universe ["Cross-Asset Universe  --  45 Assets"]
-        EQ["Equities"]
-        FI["Fixed Income"]
-        CR["Credit"]
-        CO["Commodities"]
-        FX["FX"]
-        CY["Crypto"]
-        VO["Volatility"]
-        MA["Macro"]
-    end
+graph LR
+    EQ["Equities"] -->|leads| FX["FX"]
+    EQ -->|leads| CO["Commodities"]
+    CR["Credit"] -->|leads| EQ
+    VO["Volatility"] -->|leads| CR
+    FX -->|leads| FI["Fixed Income"]
+    CY["Crypto"] -.->|internal| CY
 
     style EQ fill:#2196F3,stroke:#1565C0,color:#fff
     style FI fill:#FF9800,stroke:#E65100,color:#fff
@@ -104,7 +100,6 @@ graph TD
     style FX fill:#4CAF50,stroke:#1B5E20,color:#fff
     style CY fill:#FF5722,stroke:#BF360C,color:#fff
     style VO fill:#9C27B0,stroke:#4A148C,color:#fff
-    style MA fill:#607D8B,stroke:#263238,color:#fff
 ```
 
 | Asset Class | Source | Count | Examples |
