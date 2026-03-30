@@ -67,6 +67,18 @@ class RegimeDetector:
                 model.fit(features)
                 self._model = model
                 self._regime_labels = model.predict(features)
+                self._smoothed_probs = model.predict_proba(features)
+
+                # Ensure consistent labelling: regime 0 = low-vol (calm),
+                # regime 1 = high-vol (stress).  Sort by mean variance of
+                # each regime's Gaussian component.
+                if self.n_regimes == 2:
+                    variances = [np.trace(model.covars_[i]) for i in range(2)]
+                    if variances[0] > variances[1]:
+                        # Swap labels so 0 is calm
+                        self._regime_labels = 1 - self._regime_labels
+                        self._smoothed_probs = self._smoothed_probs[:, ::-1]
+                        logger.info("Swapped regime labels so 0=calm, 1=stress")
             except ImportError:
                 logger.warning("hmmlearn not installed; falling back to K-means")
                 from sklearn.cluster import KMeans  # noqa: PLC0415
@@ -74,6 +86,11 @@ class RegimeDetector:
                 model = KMeans(n_clusters=self.n_regimes, n_init=10, random_state=42)
                 self._regime_labels = model.fit_predict(features)
                 self._model = model
+                # One-hot fallback for smoothed probs
+                T = len(features)
+                self._smoothed_probs = np.zeros((T, self.n_regimes))
+                for i, lab in enumerate(self._regime_labels):
+                    self._smoothed_probs[i, int(lab)] = 1.0
         else:
             raise ValueError(f"Unknown method: {self.method}. Use 'hmm'.")
 

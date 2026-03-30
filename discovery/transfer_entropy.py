@@ -64,6 +64,7 @@ def transfer_entropy_knn(
     lag: int = 1,
     k: int = 5,
     history_len: int = 3,
+    noise_level: float = 1e-8,
 ) -> float:
     """Compute KSG-based transfer entropy from source to target.
 
@@ -79,6 +80,9 @@ def transfer_entropy_knn(
         lag: Prediction horizon (in time steps).
         k: Number of nearest neighbors for KNN estimator.
         history_len: Embedding dimension for history vectors.
+        noise_level: Amplitude of jitter added to break ties (KSG requires
+            continuous data; tied values from e.g. zero-filled series inflate
+            estimates).  Set to 0 to disable.
 
     Returns:
         Transfer entropy value (clipped to >= 0).
@@ -102,6 +106,16 @@ def transfer_entropy_knn(
 
     n = len(joint)
 
+    # Add tiny jitter to break ties from zero-heavy series.  Without this,
+    # many points collapse to the same location and the KSG digamma terms
+    # become degenerate, producing wildly inflated TE values.
+    if noise_level > 0:
+        rng = np.random.default_rng(0)
+        joint = joint + rng.normal(0, noise_level, joint.shape)
+        tf = joint[:, :tf.shape[1]]
+        th = joint[:, tf.shape[1]:tf.shape[1] + th.shape[1]]
+        sh = joint[:, tf.shape[1] + th.shape[1]:]
+
     # KSG estimator: for each point find k-th neighbor in joint space
     tree_joint = KDTree(joint, metric="chebyshev")
     dist_joint, _ = tree_joint.query(joint, k=k + 1)
@@ -115,21 +129,16 @@ def transfer_entropy_knn(
     tree_th_sh = KDTree(joint_th_sh, metric="chebyshev")
     tree_th = KDTree(th, metric="chebyshev")
 
-    # Number of points strictly within eps ball
+    # Vectorized neighbor counting in marginal spaces
+    eps_adj = eps - 1e-15
     n_th_tf = np.array(
-        [
-            tree_th_tf.query_radius([joint_th_tf[i]], r=eps[i] - 1e-15, count_only=True)[0]
-            for i in range(n)
-        ]
+        tree_th_tf.query_radius(joint_th_tf, r=eps_adj, count_only=True)
     )
     n_th_sh = np.array(
-        [
-            tree_th_sh.query_radius([joint_th_sh[i]], r=eps[i] - 1e-15, count_only=True)[0]
-            for i in range(n)
-        ]
+        tree_th_sh.query_radius(joint_th_sh, r=eps_adj, count_only=True)
     )
     n_th = np.array(
-        [tree_th.query_radius([th[i]], r=eps[i] - 1e-15, count_only=True)[0] for i in range(n)]
+        tree_th.query_radius(th, r=eps_adj, count_only=True)
     )
 
     te = (
@@ -164,6 +173,23 @@ def compute_te_matrix(
         lags = [1, 2, 3, 5, 10, 20]
 
     assets = list(returns_dict.keys())
+
+    # Filter out zero-dominated series (e.g. monthly macro data forward-filled
+    # to daily then differenced) — these have < 10% non-zero values and
+    # produce unreliable TE estimates even with jitter.
+    min_nonzero_frac = 0.10
+    valid_assets = []
+    for name in assets:
+        arr = returns_dict[name]
+        frac = np.count_nonzero(arr) / max(len(arr), 1)
+        if frac >= min_nonzero_frac:
+            valid_assets.append(name)
+        else:
+            logger.info(
+                "Excluding %s from TE (%.1f%% non-zero < %.0f%% threshold)",
+                name, frac * 100, min_nonzero_frac * 100,
+            )
+    assets = valid_assets
     n = len(assets)
     result: Dict[int, pd.DataFrame] = {}
 
@@ -186,3 +212,100 @@ def compute_te_matrix(
         logger.info("Computed TE matrix for lag=%d", lag)
 
     return result
+
+
+def compute_te_decay(
+    returns_dict: Dict[str, np.ndarray],
+    pairs: List[tuple[str, str]],
+    lags: Optional[List[int]] = None,
+    k: int = 5,
+    history_len: int = 3,
+) -> pd.DataFrame:
+    """Compute TE at multiple lags for specific pairs to build decay profiles.
+
+    For each pair, estimates the half-life (lag at which TE drops to 50% of
+    its lag-1 value) and classifies tradability.
+
+    Args:
+        returns_dict: Dict mapping asset name to 1-D return array.
+        pairs: List of (source, target) tuples.
+        lags: Lag values to probe.  Defaults to [1, 2, 3, 5, 10, 20].
+        k: KNN neighbors for TE estimator.
+        history_len: Embedding history length.
+
+    Returns:
+        DataFrame with columns: source, target, lag, te, te_norm, half_life,
+        category, direction, lagged_corr.
+    """
+    if lags is None:
+        lags = [1, 2, 3, 5, 10, 20]
+
+    rows = []
+    for src, tgt in pairs:
+        if src not in returns_dict or tgt not in returns_dict:
+            continue
+
+        s_arr = returns_dict[src]
+        t_arr = returns_dict[tgt]
+
+        # Compute lagged Pearson correlation at lag=1 to determine direction
+        s_lead = s_arr[:-1]
+        t_follow = t_arr[1:]
+        mask = np.isfinite(s_lead) & np.isfinite(t_follow)
+        if mask.sum() > 20:
+            lagged_corr = float(np.corrcoef(s_lead[mask], t_follow[mask])[0, 1])
+        else:
+            lagged_corr = 0.0
+        direction = "same" if lagged_corr >= 0 else "inverse"
+
+        te_lag1 = None
+        lag_values = []
+        for lag in lags:
+            te = transfer_entropy_knn(
+                returns_dict[src], returns_dict[tgt],
+                lag=lag, k=k, history_len=history_len,
+            )
+            if te_lag1 is None:
+                te_lag1 = max(te, 1e-10)
+            lag_values.append((lag, te))
+
+        # Estimate half-life: first lag where TE drops below 50% of lag-1
+        half_life = lags[-1]  # default: beyond our measurement range
+        for lag, te in lag_values[1:]:
+            if te < te_lag1 * 0.5:
+                half_life = lag
+                break
+
+        # Lag-2 retention ratio (how much TE survives to next day)
+        lag2_retention = 0.0
+        for lag, te in lag_values:
+            if lag == 2:
+                lag2_retention = te / te_lag1
+                break
+
+        # Classify tradability
+        if half_life <= 1:
+            category = "HFT only"
+        elif half_life <= 3 and lag2_retention >= 0.30:
+            category = "Next-day tradable"
+        elif half_life <= 3:
+            category = "Short-term"
+        elif half_life <= 10:
+            category = "Swing (tradable)"
+        else:
+            category = "Slow decay (tradable)"
+
+        for lag, te in lag_values:
+            rows.append({
+                "source": src,
+                "target": tgt,
+                "lag": lag,
+                "te": te,
+                "te_norm": te / te_lag1,
+                "half_life": half_life,
+                "category": category,
+                "direction": direction,
+                "lagged_corr": lagged_corr,
+            })
+
+    return pd.DataFrame(rows)

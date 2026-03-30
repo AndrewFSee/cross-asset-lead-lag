@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Deque, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -91,7 +91,7 @@ class LeadLagMonitor:
             List of newly detected StructuralBreakEvent instances.
         """
         if current_date is None:
-            current_date = datetime.utcnow()
+            current_date = datetime.now(timezone.utc)
 
         new_events: List[StructuralBreakEvent] = []
         assets = te_matrix.index.tolist()

@@ -37,8 +37,9 @@ def _fetch_yahoo_series(ticker: str, start_date: str, end_date: Optional[str] = 
     if data.empty:
         raise ValueError(f"No data returned for ticker {ticker}")
     close = data["Close"]
-    if hasattr(close, "squeeze"):
-        close = close.squeeze()
+    if isinstance(close, pd.DataFrame):
+        close = close.iloc[:, 0]
+    close = close.squeeze()
     close.name = ticker
     return close
 

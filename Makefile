@@ -21,6 +21,15 @@ format:
 data:
 	python -c "from data.ingestion import fetch_all_data; fetch_all_data()"
 
+pipeline:
+	python run_pipeline.py
+
+pipeline-cached:
+	python run_pipeline.py --skip-fetch
+
+pipeline-backtest:
+	python run_pipeline.py --skip-fetch --backtest
+
 dashboard:
 	streamlit run dashboard/app.py
 

@@ -24,6 +24,7 @@ ENV/
 # Data cache
 data/cache/*.parquet
 data/cache/*.csv
+data/outputs/
 
 # IDE
 .vscode/

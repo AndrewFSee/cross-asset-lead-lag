@@ -13,7 +13,9 @@ from sklearn.neighbors import KDTree
 logger = logging.getLogger(__name__)
 
 
-def mutual_information_knn(x: np.ndarray, y: np.ndarray, k: int = 5) -> float:
+def mutual_information_knn(
+    x: np.ndarray, y: np.ndarray, k: int = 5, noise_level: float = 1e-8,
+) -> float:
     """Estimate mutual information I(X;Y) using the KSG estimator.
 
     Implements Algorithm 1 from Kraskov, Stögbauer & Grassberger (2004):
@@ -23,6 +25,7 @@ def mutual_information_knn(x: np.ndarray, y: np.ndarray, k: int = 5) -> float:
         x: First variable (1-D array).
         y: Second variable (1-D array).
         k: Number of nearest neighbors.
+        noise_level: Jitter amplitude to break tied values.
 
     Returns:
         Estimated mutual information (clipped to >= 0).
@@ -39,6 +42,12 @@ def mutual_information_knn(x: np.ndarray, y: np.ndarray, k: int = 5) -> float:
         logger.warning("Not enough data for MI estimation (n=%d)", n)
         return 0.0
 
+    # Add tiny jitter to break ties (KSG assumes continuous data)
+    if noise_level > 0:
+        rng = np.random.default_rng(0)
+        x = x + rng.normal(0, noise_level, x.shape)
+        y = y + rng.normal(0, noise_level, y.shape)
+
     joint = np.concatenate([x, y], axis=1)
     tree_joint = KDTree(joint, metric="chebyshev")
     dist, _ = tree_joint.query(joint, k=k + 1)
@@ -47,12 +56,9 @@ def mutual_information_knn(x: np.ndarray, y: np.ndarray, k: int = 5) -> float:
     tree_x = KDTree(x, metric="chebyshev")
     tree_y = KDTree(y, metric="chebyshev")
 
-    n_x = np.array(
-        [tree_x.query_radius([x[i]], r=eps[i] - 1e-15, count_only=True)[0] for i in range(n)]
-    )
-    n_y = np.array(
-        [tree_y.query_radius([y[i]], r=eps[i] - 1e-15, count_only=True)[0] for i in range(n)]
-    )
+    eps_adj = eps - 1e-15
+    n_x = np.array(tree_x.query_radius(x, r=eps_adj, count_only=True))
+    n_y = np.array(tree_y.query_radius(y, r=eps_adj, count_only=True))
 
     mi = digamma(k) - np.mean(digamma(n_x + 1) + digamma(n_y + 1)) + digamma(n)
     return max(0.0, float(mi))
