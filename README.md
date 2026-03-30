@@ -136,22 +136,7 @@ The engine recovers economically meaningful information flows and measures their
 
 ## Backtest: Lead-Lag Signals vs. Passive Benchmark
 
-```
-  Growth of $1
-  1.30 ┤                                                          ╭── Lead-Lag Strategy
-  1.25 ┤                                                     ╭────╯
-  1.20 ┤                                                ╭────╯
-  1.15 ┤                                      ╭────╮╭──╯
-  1.10 ┤                                 ╭────╯    ╰╯
-  1.05 ┤                       ╭────╮╭──╯
-  1.00 ┤──────────────────╮╭──╯    ╰╯             ·········· Benchmark (Inv-Vol)
-  0.95 ┤                  ╰╯       ···········································
-       └────┬────┬────┬────┬────┬────┬────┬────┬
-           Y1   Y2   Y3   Y4   Y5   Y6   Y7   Y8
-
-  Lead-Lag Strategy:  Sharpe 1.70 · Return 29.3% · Max DD -5.2%
-  Benchmark Inv-Vol:  Sharpe 0.65 · Return  6.3% · Max DD -4.8%
-```
+![Walk-Forward Backtest](docs/backtest_equity_curve.png)
 
 The walk-forward backtest uses **no lookahead bias** — TE matrices are computed on expanding windows, signals are generated from yesterday's leader returns, and positions are rebalanced at the next day's close.
 
