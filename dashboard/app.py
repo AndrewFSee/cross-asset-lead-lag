@@ -540,6 +540,7 @@ def _render_signals_page() -> None:
 
 def _render_backtest_page() -> None:
     from dashboard.views.backtest_results import render_backtest_results
+    from dashboard.views.robustness_panel import render_robustness_panel
 
     equity = load_backtest_equity()
     metrics = load_backtest_metrics()
@@ -553,6 +554,12 @@ def _render_backtest_page() -> None:
         render_backtest_results(
             equity["equity"], metrics_dict,
             benchmark_equity=bench_eq, benchmark_metrics=bench_m,
+        )
+        st.divider()
+        port_returns = equity["equity"].pct_change().dropna()
+        render_robustness_panel(
+            port_returns, output_dir=OUTPUT_DIR,
+            n_trials_tested=int(metrics_dict.get("n_trials_tested", 30)),
         )
     else:
         st.subheader("Backtest Results")

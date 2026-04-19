@@ -101,13 +101,17 @@ def build_returns_panel(
 
         for col in df.columns:
             transform = transforms.get(col, "log_return")
-            series = df[col].copy()
-
-            # Forward-fill macro / low-frequency series before differencing
-            if asset_class == "macro" and macro_ffill:
-                series = series.ffill()
-
-            ret = _apply_transform(series, transform)
+            raw = df[col]
+            # Compute the return on *observed* values only. Pre-diff ffill of
+            # the price/level creates long runs of zeros on non-release days
+            # (e.g. weekly macro ffilled to daily then diffed) which then
+            # correlate spuriously with day-of-week/release-calendar effects
+            # in the TE matrix. Leaving NaN on non-release days lets the
+            # downstream non-zero filter in transfer_entropy.compute_te_matrix
+            # correctly identify and exclude low-coverage series.
+            observed = raw.dropna()
+            ret = _apply_transform(observed, transform)
+            ret = ret.reindex(df.index)  # NaN on non-release days
             ret.name = col
             class_returns[col] = ret
 

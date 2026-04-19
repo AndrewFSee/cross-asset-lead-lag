@@ -120,6 +120,7 @@ def neural_granger_test(
     val_fraction: float = 0.2,
     batch_size: int = 32,
     device: Optional[str] = None,
+    random_state: Optional[int] = 0,
 ) -> Dict[int, float]:
     """Test neural Granger causality from all assets to a target asset.
 
@@ -145,6 +146,12 @@ def neural_granger_test(
     """
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    if random_state is not None:
+        torch.manual_seed(random_state)
+        np.random.seed(random_state)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(random_state)
 
     returns = np.asarray(returns, dtype=np.float32)
     n_time, n_assets = returns.shape

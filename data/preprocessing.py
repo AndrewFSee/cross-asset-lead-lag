@@ -159,12 +159,20 @@ def align_calendars(
         if df is None or df.empty:
             aligned[asset_class] = df
             continue
-        # Reindex to the combined calendar, then forward-fill gaps (e.g. FRED weekends)
+        # Reindex to the combined calendar. For tradable daily-priced classes
+        # we forward-fill short gaps (e.g. a holiday) with limit=3. For
+        # weekly/monthly release classes (macro) we do NOT ffill the level —
+        # ffilling the level then taking a diff creates spurious zero-runs
+        # that leak day-of-week / release-calendar structure into the TE
+        # matrix. `build_returns_panel` now handles these series correctly
+        # by computing returns at native frequency.
         reindexed = df.reindex(combined_index)
-        if asset_class in ("rates", "credit", "macro", "volatility"):
+        if asset_class in ("rates", "credit", "volatility"):
             reindexed = reindexed.ffill(limit=5)
-        else:
+        elif asset_class != "macro":
             reindexed = reindexed.ffill(limit=3)
+        # macro: leave NaN on non-release days so that downstream logic can
+        # detect and exclude low-coverage series.
         aligned[asset_class] = reindexed
         logger.debug("Aligned %s: %d rows -> %d rows", asset_class, len(df), len(reindexed))
 

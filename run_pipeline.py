@@ -34,6 +34,27 @@ def main() -> None:
         "--recent-window", type=int, default=750,
         help="Use only the last N observations for TE/MI (0 = all data)",
     )
+    parser.add_argument(
+        "--tc-bps", type=float, default=1.0,
+        help="Round-trip transaction cost in basis points (per 100%% turnover).",
+    )
+    parser.add_argument(
+        "--execution-lag", type=int, default=1,
+        help="Bars between signal and execution (1 = next-close, 0 = same-close).",
+    )
+    parser.add_argument(
+        "--te-refresh-freq", type=int, default=63,
+        help="Bars between walk-forward TE refreshes (smaller = fresher, slower).",
+    )
+    parser.add_argument(
+        "--te-lookback", type=int, default=750,
+        help="Size of the in-loop TE training slice used at each refresh.",
+    )
+    parser.add_argument(
+        "--tc-sweep", nargs="+", type=float, default=None,
+        help="After main backtest, re-run over these TC values (bps) and "
+             "write backtest_tc_sensitivity.parquet for the dashboard.",
+    )
     args = parser.parse_args()
 
     from config.settings import Settings
@@ -235,6 +256,8 @@ def main() -> None:
             signal_func=benchmark_signal_func,
             initial_window=252,
             step_size=21,
+            tc_bps=args.tc_bps,
+            execution_lag=args.execution_lag,
         )
         bt_bench.run()
         bench_metrics = bt_bench.compute_metrics()
@@ -251,9 +274,6 @@ def main() -> None:
         )
 
         # --- Strategy B: Lead-lag signal strategy ---
-        # Pre-compute the TE matrix for pair selection (already available)
-        _te_lag1 = te_matrices.get(1, list(te_matrices.values())[0])
-
         # Identify tradable follower assets (equities only — not FX/credit/macro
         # which react before you can trade)
         EQUITY_ASSETS = {
@@ -261,46 +281,90 @@ def main() -> None:
             "XLK", "XLP", "XLRE", "XLU", "XLV", "XLY",
         }
 
-        # Build the top lead-lag pairs: leader → equity follower
-        _ll_pairs = []
-        for src in _te_lag1.index:
-            for tgt in _te_lag1.columns:
-                if src != tgt and tgt in EQUITY_ASSETS:
-                    _ll_pairs.append((src, tgt, float(_te_lag1.loc[src, tgt])))
-        _ll_pairs.sort(key=lambda x: x[2], reverse=True)
-        _ll_pairs = _ll_pairs[:30]  # top 30 leader→equity pairs
+        # Closure-based state for walk-forward TE refresh. The signal function
+        # recomputes TE leader→follower pairs every `te_refresh_freq` bars
+        # using ONLY the current training slice — no information from dates
+        # at or after the rebalance point leaks into pair selection.
+        from discovery.transfer_entropy import compute_te_matrix
 
-        logger.info("Lead-lag pairs for backtest (%d):", len(_ll_pairs))
-        for src, tgt, te_val in _ll_pairs[:10]:
-            logger.info("  %s → %s : TE=%.4f", src, tgt, te_val)
+        te_state = {
+            "last_refresh_n": -10**9,
+            "te_weights": {},
+            "refresh_count": 0,
+        }
 
-        # TE weights for aggregation (normalized per follower)
-        _te_weights = {}
-        for src, tgt, te_val in _ll_pairs:
-            _te_weights.setdefault(tgt, []).append((src, te_val))
+        def _refresh_te_weights(train_returns: pd.DataFrame) -> dict:
+            lookback = min(args.te_lookback, len(train_returns))
+            te_slice = train_returns.iloc[-lookback:]
+            # Restrict TE computation to (all leaders) × (equity followers)
+            # by slicing the returns dict to only the equity target columns
+            # during matrix assembly. compute_te_matrix computes full NxN but
+            # we only read rows with tgt in EQUITY_ASSETS, so the cost is
+            # already close to optimal for our use case — we keep the call
+            # simple here for readability.
+            rdict = {c: te_slice[c].values for c in te_slice.columns}
+            te_mats = compute_te_matrix(
+                rdict, lags=[1], k=settings.te_k_neighbors,
+            )
+            te_lag1_local = te_mats[1]
+
+            pairs = []
+            for src in te_lag1_local.index:
+                for tgt in te_lag1_local.columns:
+                    if src != tgt and tgt in EQUITY_ASSETS:
+                        pairs.append((src, tgt, float(te_lag1_local.loc[src, tgt])))
+            pairs.sort(key=lambda x: x[2], reverse=True)
+            pairs = pairs[:30]  # top 30 leader→equity pairs
+
+            weights_map: dict = {}
+            for src, tgt, te_val in pairs:
+                weights_map.setdefault(tgt, []).append((src, te_val))
+            return weights_map
 
         def leadlag_signal_func(train_returns: pd.DataFrame) -> dict:
-            """Lead-lag signal: use yesterday's leader returns to predict
-            follower direction today. Size by lagged beta × TE weight."""
+            """Walk-forward lead-lag signal.
+
+            Uses only information in `train_returns` (which the backtest
+            harness guarantees is strictly prior to the current rebalance).
+            TE pair selection is refreshed every `--te-refresh-freq` bars;
+            lagged beta is re-estimated every call from the training slice.
+            """
             assets = train_returns.columns.tolist()
             n = len(train_returns)
 
-            # Need at least 60 days to estimate correlations
-            if n < 60:
+            # Need at least 252 days before we can estimate anything useful
+            if n < 252:
                 return {a: 0.0 for a in assets}
 
-            # Yesterday's leader returns (last row of training data)
+            # Refresh the TE pair map on a slow cadence
+            if n - te_state["last_refresh_n"] >= args.te_refresh_freq:
+                te_state["te_weights"] = _refresh_te_weights(train_returns)
+                te_state["last_refresh_n"] = n
+                te_state["refresh_count"] += 1
+                logger.info(
+                    "TE refresh #%d at n=%d (%d follower groups, %d total pairs)",
+                    te_state["refresh_count"], n,
+                    len(te_state["te_weights"]),
+                    sum(len(v) for v in te_state["te_weights"].values()),
+                )
+
+            te_weights_live = te_state["te_weights"]
+            if not te_weights_live:
+                return {a: 0.0 for a in assets}
+
+            # Most recent leader returns (last row of training data — this is
+            # close(t-1), known at decision time)
             leader_rets = train_returns.iloc[-1]
 
-            # Compute trailing lagged correlations and vols (lookback = min(252, n-1))
+            # Estimate trailing lagged beta from a 252-bar window inside the
+            # training slice. leader[k] pairs with follower[k+1]; both slices
+            # live strictly inside train_returns, so no lookahead.
             lb = min(252, n - 1)
-            leader_slice = train_returns.iloc[-(lb + 1):-1]  # day t
-            follower_slice = train_returns.iloc[-lb:]         # day t+1
-            stds = train_returns.iloc[-lb:].std()
+            leader_slice = train_returns.iloc[-(lb + 1):-1]
+            follower_slice = train_returns.iloc[-lb:]
 
-            # For each follower, aggregate predicted return across its leaders
             predictions = {}
-            for follower, leader_list in _te_weights.items():
+            for follower, leader_list in te_weights_live.items():
                 if follower not in assets:
                     continue
                 pred = 0.0
@@ -308,7 +372,6 @@ def main() -> None:
                 for leader, te_wt in leader_list:
                     if leader not in assets:
                         continue
-                    # Lagged correlation: corr(leader_t, follower_{t+1})
                     s = leader_slice[leader].values
                     f = follower_slice[follower].values
                     min_len = min(len(s), len(f))
@@ -320,29 +383,22 @@ def main() -> None:
                         continue
                     corr = np.corrcoef(s, f)[0, 1]
                     beta = corr * (fs / ss)
-
-                    # Signal = beta × leader's yesterday return, weighted by TE
                     pred += te_wt * beta * float(leader_rets.get(leader, 0.0))
                     te_sum += te_wt
 
                 if te_sum > 0:
-                    predictions[follower] = pred / te_sum  # TE-weighted avg
+                    predictions[follower] = pred / te_sum
 
             if not predictions:
                 return {a: 0.0 for a in assets}
 
-            # Convert predictions to weights:
-            # Long if predicted > 0, short if predicted < 0
-            # Size proportional to |prediction|, then normalize
             raw_weights = pd.Series(predictions)
             gross = raw_weights.abs().sum()
             if gross < 1e-12:
                 return {a: 0.0 for a in assets}
 
-            # Target gross leverage = 1.0, cap any single position at 15%
             weights = raw_weights / gross
             weights = weights.clip(-0.15, 0.15)
-            # Re-normalize to gross leverage 1.0
             gross2 = weights.abs().sum()
             if gross2 > 1e-12:
                 weights = weights / gross2
@@ -354,6 +410,8 @@ def main() -> None:
             signal_func=leadlag_signal_func,
             initial_window=252,
             step_size=1,  # daily rebalance — signals change every day
+            tc_bps=args.tc_bps,
+            execution_lag=args.execution_lag,
         )
         bt_ll.run()
         ll_metrics = bt_ll.compute_metrics()
@@ -368,6 +426,30 @@ def main() -> None:
         pd.Series(ll_metrics).to_frame("value").to_parquet(
             output_dir / "backtest_metrics.parquet"
         )
+
+        if args.tc_sweep:
+            logger.info("TC sensitivity sweep over %s bps", args.tc_sweep)
+            sweep_rows = []
+            for tc in args.tc_sweep:
+                bt_sweep = WalkForwardBacktest(
+                    returns=bt_panel,
+                    signal_func=leadlag_signal_func,
+                    initial_window=252,
+                    step_size=1,
+                    tc_bps=float(tc),
+                    execution_lag=args.execution_lag,
+                )
+                bt_sweep.run()
+                m = bt_sweep.compute_metrics()
+                sweep_rows.append({
+                    "tc_bps": float(tc),
+                    "sharpe": float(m.get("sharpe", 0.0)),
+                    "total_return": float(m.get("total_return", 0.0)),
+                    "max_drawdown": float(m.get("max_drawdown", 0.0)),
+                })
+            pd.DataFrame(sweep_rows).to_parquet(
+                output_dir / "backtest_tc_sensitivity.parquet"
+            )
 
     logger.info("=" * 60)
     logger.info("Pipeline complete.")

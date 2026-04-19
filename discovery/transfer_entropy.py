@@ -151,6 +151,69 @@ def transfer_entropy_knn(
     return max(0.0, float(te))
 
 
+def effective_transfer_entropy(
+    source: np.ndarray,
+    target: np.ndarray,
+    lag: int = 1,
+    k: int = 5,
+    history_len: int = 3,
+    n_surrogates: int = 50,
+    random_state: Optional[int] = 0,
+) -> Dict[str, float]:
+    """Bias-corrected ("effective") transfer entropy (Marschinski & Kantz 2002).
+
+    Finite-sample KSG TE has a positive bias even for independent series.
+    The effective TE subtracts the mean TE estimated from `n_surrogates`
+    circular shifts of the source series — shifts preserve the marginal
+    distribution but destroy any causal link to the target. The difference
+    is an unbiased estimate of the true causal signal; the fraction of
+    surrogate TEs exceeding the raw value gives a one-sided p-value.
+
+    Args:
+        source: Source time series (1-D array).
+        target: Target time series (1-D array).
+        lag: Prediction horizon.
+        k: KSG k-nearest-neighbour parameter.
+        history_len: Embedding dimension for target/source history.
+        n_surrogates: Number of circular-shift surrogates. 50 gives a
+            reasonable null distribution; 200+ for publication-grade
+            p-values.
+        random_state: Seed for the shift distribution.
+
+    Returns:
+        Dict with keys: te_raw, te_surrogate_mean, te_effective, p_value.
+    """
+    te_raw = transfer_entropy_knn(
+        source, target, lag=lag, k=k, history_len=history_len,
+    )
+    rng = np.random.default_rng(random_state)
+    n = len(source)
+    # Avoid shifts smaller than 2·history_len so that the shifted source
+    # retains no overlap with its original position in the embedding.
+    min_shift = max(2 * history_len + lag + 1, 10)
+    max_shift = max(min_shift + 1, n - min_shift)
+
+    surrogate_tes = np.zeros(n_surrogates)
+    for i in range(n_surrogates):
+        shift = int(rng.integers(min_shift, max_shift))
+        shuffled_source = np.roll(source, shift)
+        surrogate_tes[i] = transfer_entropy_knn(
+            shuffled_source, target, lag=lag, k=k, history_len=history_len,
+        )
+
+    te_surrogate_mean = float(surrogate_tes.mean())
+    te_effective = max(0.0, float(te_raw - te_surrogate_mean))
+    # One-sided p-value: fraction of surrogates at-or-above the raw TE.
+    p_value = float((surrogate_tes >= te_raw).mean())
+
+    return {
+        "te_raw": float(te_raw),
+        "te_surrogate_mean": te_surrogate_mean,
+        "te_effective": te_effective,
+        "p_value": p_value,
+    }
+
+
 def compute_te_matrix(
     returns_dict: Dict[str, np.ndarray],
     lags: Optional[List[int]] = None,

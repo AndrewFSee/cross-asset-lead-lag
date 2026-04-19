@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Mapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -177,3 +177,103 @@ def bayesian_model_average(
         )
 
     return result
+
+
+def regime_conditional_te_weights(
+    per_regime_te: Mapping[int, pd.DataFrame],
+    current_regime: int,
+    followers: List[str],
+    te_threshold: float = 0.01,
+    top_k_per_follower: int = 3,
+    fallback_regime: Optional[int] = None,
+) -> Dict[str, List[Dict[str, float]]]:
+    """Select leader→follower pairs whose TE is significant in *this* regime.
+
+    The idea (from regime-conditional causality literature): a pair that
+    only expresses its edge in a stress regime should not be traded in a
+    calm regime, and vice versa. Given a dict of per-regime TE matrices,
+    pick the top-k leaders for each follower *using only the current
+    regime's matrix*. If no regime-specific matrix is available we fall
+    back to ``fallback_regime`` (or return an empty mapping).
+
+    Args:
+        per_regime_te: Mapping ``regime_label → TE DataFrame`` where rows
+            are source (leader) and columns are target (follower) assets.
+        current_regime: The regime label active at the decision bar.
+        followers: Which targets we care about.
+        te_threshold: Minimum per-regime TE to include a pair.
+        top_k_per_follower: Cap on leaders retained per follower.
+        fallback_regime: If ``current_regime`` is missing, use this one.
+
+    Returns:
+        ``{follower: [{leader, te, weight}, …]}`` with weights
+        normalised to sum to 1 within each follower.
+    """
+    te = per_regime_te.get(current_regime)
+    if te is None and fallback_regime is not None:
+        te = per_regime_te.get(fallback_regime)
+    if te is None:
+        return {}
+
+    out: Dict[str, List[Dict[str, float]]] = {}
+    for fol in followers:
+        if fol not in te.columns:
+            continue
+        col = te[fol].drop(labels=[fol], errors="ignore")
+        col = col[col >= te_threshold]
+        if col.empty:
+            continue
+        top = col.nlargest(top_k_per_follower)
+        total = float(top.sum()) or 1.0
+        out[fol] = [
+            {"leader": str(name), "te": float(val), "weight": float(val) / total}
+            for name, val in top.items()
+        ]
+    return out
+
+
+def compute_per_regime_te(
+    returns: pd.DataFrame,
+    regime_labels: np.ndarray,
+    te_fn,
+    min_bars_per_regime: int = 120,
+    **te_kwargs,
+) -> Dict[int, pd.DataFrame]:
+    """Build a TE matrix per regime by slicing returns on ``regime_labels``.
+
+    Regimes with fewer than ``min_bars_per_regime`` observations are
+    skipped (a TE matrix on 40 bars is noise). ``te_fn`` must accept a
+    ``Dict[str, np.ndarray]`` and return a tidy DataFrame with columns
+    ``source, target, te`` (the existing ``compute_te_matrix``).
+
+    Args:
+        returns: Shape (T, N) returns panel aligned with ``regime_labels``.
+        regime_labels: Array of length T with regime id per bar.
+        te_fn: Callable used to compute TE per regime slice.
+        min_bars_per_regime: Skip sparse regimes.
+        **te_kwargs: Forwarded to ``te_fn``.
+
+    Returns:
+        Dict ``regime_id → TE DataFrame`` (source × target).
+    """
+    from collections import Counter
+
+    if len(regime_labels) != len(returns):
+        raise ValueError("regime_labels length must match returns")
+    out: Dict[int, pd.DataFrame] = {}
+    counts = Counter(int(r) for r in regime_labels)
+    for regime, n in counts.items():
+        if n < min_bars_per_regime:
+            logger.debug("skip regime %d with only %d bars", regime, n)
+            continue
+        mask = regime_labels == regime
+        sub = returns.loc[mask]
+        series_dict = {c: sub[c].to_numpy() for c in sub.columns}
+        tidy = te_fn(series_dict, **te_kwargs)
+        # Pivot to (source × target)
+        if isinstance(tidy, pd.DataFrame) and {"source", "target", "te"}.issubset(tidy.columns):
+            mat = tidy.pivot(index="source", columns="target", values="te").fillna(0.0)
+        else:
+            mat = tidy  # already a matrix
+        out[int(regime)] = mat
+    return out
